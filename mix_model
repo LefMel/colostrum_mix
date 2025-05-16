@@ -1,0 +1,110 @@
+model {
+
+  for (i in 1:N) {
+
+    RID[i] ~ dnorm(mu_RID[i],tau_RID[i]) # test 1 - RID
+
+    IR[i] ~ dnorm(cond_mu[i],condtau[i]) # test 2 - IR
+
+    dBr[i] ~ dnorm(mu_dBr[i],tau_dBr[i]) # test 3 - dBr
+
+    # RID
+    mu_RID[i] <- lambda_RID[T[i]]
+    tau_RID[i] <- gamma_RID[T[i]]
+
+    # IR
+    cond_mu[i]<-lambda_IR[T[i]]+rho[T[i]]*sqrt(gamma_RID[T[i]]/gamma_IR[T[i]])*(RID[i]-lambda_RID[T[i]])
+    condtau[i]<-(gamma_IR[T[i]])/(1-pow(rho[T[i]],2))
+
+    # dBr
+    mu_dBr[i] <- lambda_dBr[T[i]]
+    tau_dBr[i] <- gamma_dBr[T[i]]
+
+    T[i] ~ dcat(P[]) # disease group if T[i] =1, non-disease if T[i]=2
+
+  }
+
+  P[1:2] ~ ddirch(alpha[])
+  
+  lambda_RID[1] ~ dnorm(0,0.01)I(lambda_RID[2],) # prior for the mean of disease group (test 1)
+  lambda_RID[2] ~ dnorm(0,0.01) # prior for the mean of non-disease group (test 1)
+
+  lambda_IR[1] ~ dnorm(0,0.01)I(lambda_IR[2],) # prior for the mean of disease group (test 2)
+  lambda_IR[2] ~ dnorm(0,0.01) # prior for the mean of non-disease group (test 2)
+  
+  lambda_dBr[1] ~ dnorm(0,0.01)I(lambda_dBr[2],) # prior for the mean of disease group (test 3)
+  lambda_dBr[2] ~ dnorm(0,0.01) # prior for the mean of non-disease group (test 3)
+
+
+  gamma_RID[1] ~ dgamma(0.1,0.001) # prior for the precision of disease group (test 1)
+  gamma_RID[2] ~ dgamma(0.1,0.001) # prior for the precision of non-disease group (test 1)
+
+  gamma_IR[1] ~ dgamma(0.1,0.001) # prior for the precision of disease group (test 2)
+  gamma_IR[2] ~ dgamma(0.1,0.001) # prior for the precision of non-disease group (test 2)
+
+  gamma_dBr[1] ~ dgamma(0.1,0.001) # prior for the precision of disease group (test 3)
+  gamma_dBr[2] ~ dgamma(0.1,0.001) # prior for the precision of non-disease group (test 3)
+
+  sigma_RID[1] <- 1/gamma_RID[1] # define the variance for disease group (test1)
+  sigma_RID[2] <- 1/gamma_RID[2] # define the variance for non-disease group (test1)
+
+  sigma_IR[1] <- 1/gamma_IR[1] # define the variance for disease group (test 2)
+  sigma_IR[2] <- 1/gamma_IR[2] # define the variance for non-disease group (test 2)
+
+  sigma_dBr[1] <- 1/gamma_dBr[1] # define the variance for disease group (test 3)
+  sigma_dBr[2] <- 1/gamma_dBr[2] # define the variance for non-disease group (test 3)
+
+  #delta <- phi((-1.357-lambda[1])/sqrt(sigma[1]))
+  
+  rho[1] ~ dunif(-1,1) 
+  rho[2] ~ dunif(-1,1)
+
+
+  # AUC
+
+  AUC[1] <- phi(-(lambda_RID[2]-lambda_RID[1])/sqrt(sigma_RID[2]+sigma_RID[1]))
+  AUC[2] <- phi(-(lambda_IR[2]-lambda_IR[1])/sqrt(sigma_IR[2]+sigma_IR[1]))
+  AUC[3] <- phi(-(lambda_dBr[2]-lambda_dBr[1])/sqrt(sigma_dBr[2]+sigma_dBr[1]))
+
+  # ROC curve
+
+  for(i in 1:100) {
+
+    c1[i] <-  ((1.281+0.05*i)-lambda_RID[1])/sqrt(sigma_RID[1]) # grid range
+    #c1[i] <-  ((3.6+4.152*i)-lambda_RID[1])/sqrt(sigma_RID[1]) # grid range
+
+    se_RID[i] <- 1-phi(c1[i])
+
+    c2[i] <-  ((1.281+0.05*i)-lambda_RID[2])/sqrt(sigma_RID[2])
+    #c2[i] <-  ((3.6+4.152*i)-lambda_RID[2])/sqrt(sigma_RID[2])
+    sp_RID[i] <- phi(c2[i])
+    
+    Y_RID[i] <- se_RID[i] + sp_RID[i] - 1
+    
+    c3[i] <-  ((2.21+0.04*i)-lambda_IR[1])/sqrt(sigma_IR[1]) # grid range
+    #c3[i] <-  ((-90.88+3.1781*i)-lambda_IR[1])/sqrt(sigma_IR[1]) # grid range
+    se_IR[i] <- 1-phi(c3[i])
+
+    c4[i] <-  ((2.21+0.04*i)-lambda_IR[2])/sqrt(sigma_IR[2])
+    #c4[i] <-  ((-90.88+3.1781*i)-lambda_IR[2])/sqrt(sigma_IR[2])
+    sp_IR[i] <- phi(c4[i])
+    
+    Y_IR[i] <- se_IR[i] + sp_IR[i] - 1
+    
+    
+    c5[i] <-  ((2.197+0.02*i)-lambda_dBr[1])/sqrt(sigma_dBr[1]) # grid range
+    #c5[i] <-  ((9+0.318*i)-lambda_dBr[1])/sqrt(sigma_dBr[1]) # grid range
+    se_dBr[i] <- 1-phi(c5[i])
+
+    c6[i] <-  ((2.197+0.02*i)-lambda_dBr[2])/sqrt(sigma_dBr[2])
+    #c6[i] <-  ((9+0.318*i)-lambda_dBr[2])/sqrt(sigma_dBr[2])
+    sp_dBr[i] <- phi(c6[i])
+    
+    Y_dBr[i] <- se_dBr[i] + sp_dBr[i] - 1
+
+  }
+  
+
+
+}
+#monitor# se_RID, sp_RID, se_IR, sp_IR, se_dBr, sp_dBr, AUC, Y_RID, Y_IR, Y_dBr, P, rho, lambda_RID, lambda_IR, lambda_dBr, gamma_RID, gamma_IR, gamma_dBr
